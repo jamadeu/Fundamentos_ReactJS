@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
+import { promises } from 'dns';
 import income from '../../assets/income.svg';
 import outcome from '../../assets/outcome.svg';
 import total from '../../assets/total.svg';
@@ -36,36 +37,41 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     async function loadTransactions(): Promise<void> {
       const response = await api.get('/transactions');
+      const {
+        transactions: getTransactions,
+        balance: getBalance,
+      } = response.data;
+      const tmpTransactions: Transaction[] = [];
 
-      const formattedTransactions = response.data.transactions.map(
-        (transaction: Transaction): Transaction => {
-          const formattedDate = formatValue(transaction.created_at);
+      getTransactions.forEach((a: Transaction) => {
+        const transactionFormacted: Transaction = {
+          id: a.id,
+          title: a.title,
+          value: a.value,
+          formattedValue: formatValue(a.value),
+          formattedDate: new Date(a.created_at).toLocaleDateString('pt-BR'),
+          type: a.type,
+          category: a.category,
+          created_at: a.created_at, // eslint-disable-line
+        };
 
-          const formattedValue =
-            transaction.type === 'outcome'
-              ? `- ${formatValue(transaction.value)}`
-              : formatValue(transaction.value);
+        tmpTransactions.push(transactionFormacted);
+        // setTransactions([...transactions, transactionFormacted]);
+      });
 
-          return {
-            ...transaction,
-            formattedValue,
-            formattedDate,
-          };
-        },
-      );
+      setTransactions([...transactions, ...tmpTransactions]);
 
-      setTransactions(formattedTransactions);
-
-      const convertedBalance = {
-        income: formatValue(response.data.balance.income),
-        outcome: formatValue(response.data.balance.outcome),
-        total: formatValue(response.data.balance.total),
+      const updatedBalance: Balance = {
+        income: formatValue(getBalance.income),
+        outcome: formatValue(getBalance.outcome),
+        total: formatValue(getBalance.total),
       };
-      setBalance(convertedBalance);
+
+      setBalance(updatedBalance);
     }
 
     loadTransactions();
-  }, [transactions]);
+  }, []); // eslint-disable-line
 
   return (
     <>
@@ -105,18 +111,22 @@ const Dashboard: React.FC = () => {
                 <th>Data</th>
               </tr>
             </thead>
-
             <tbody>
-              {transactions.map(transaction => (
-                <tr key={transaction.id}>
-                  <td className="title">{transaction.title}</td>
-                  <td className={transaction.type}>
-                    {transaction.formattedValue}
-                  </td>
-                  <td>{transaction.category.title}</td>
-                  <td>{transaction.formattedDate}</td>
-                </tr>
-              ))}
+              {transactions.map(transaction => {
+                const isIncome = transaction.type === 'income';
+
+                return (
+                  <tr key={transaction.id}>
+                    <td className="title">{transaction.title}</td>
+                    <td className={`${isIncome ? 'income' : 'outcome'}`}>
+                      {!isIncome && '- '}
+                      {transaction.formattedValue}
+                    </td>
+                    <td className="title">{transaction.category.title}</td>
+                    <td>{transaction.formattedDate}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </TableContainer>
